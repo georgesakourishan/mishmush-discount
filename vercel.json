@@ -7,10 +7,7 @@
     "crons": [
       {
         "path": "/api/maintenance",
-        "schedule": "0 9 * * *",
-        "headers": {
-          "Authorization": "Bearer abd875f5c69502c02816bc09150401b1cb75f81856886205da0b8c2e490f0d52"
-        }
+        "schedule": "0 9 * * *"
       }
     ]
 }
