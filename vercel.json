@@ -4,11 +4,14 @@
       "runtime": "nodejs20.x"
     }
   },
-  "crons": [
-    {
-      "path": "/api/maintenance",
-      "schedule": "0 9 * * *"
-    }
-  ]
+    "crons": [
+      {
+        "path": "/api/maintenance",
+        "schedule": "0 9 * * *",
+        "headers": {
+          "Authorization": "Bearer your-secret-key"
+        }
+      }
+    ]
 }
 
