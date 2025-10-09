@@ -122,11 +122,21 @@ export default async function handler(req, res) {
   }
 
   const payload = safeParse(raw);
-  if (!payload || !payload.customer || !payload.customer.id) {
-    return res.status(400).json({ error: "Missing customer payload: { customer: { id, email?, first_name? } }" });
+  let customerId, email, first_name;
+
+  if (payload && payload.customer) {
+    // Flow format: { customer: { id, email, first_name, ... } }
+    ({ id: customerId, email, first_name } = payload.customer);
+  } else if (payload && payload.id) {
+    // Webhook format: { id, email, first_name, ... }
+    ({ id: customerId, email, first_name } = payload);
+  } else {
+    return res.status(400).json({ error: "Missing customer payload. Expected { customer: { id, ... } } or { id, ... }" });
   }
 
-  const customerId = payload.customer.id;
+  if (!customerId) {
+    return res.status(400).json({ error: "Missing customer id" });
+  }
 
   try {
     // Idempotency: don’t create a new code if one already exists
