@@ -32,10 +32,10 @@ function randomCode() {
 async function getExistingWelcomeCode(customerId) {
   // Try to read the metafield if it exists
   try {
-    const data = await shopifyFetch(`/customers/${customerId}/metafields.json?namespace=welcome&key=discount_code`);
+    const data = await shopifyFetch(`/customers/${customerId}/metafields.json?namespace=custom&key=welcome_discount_code`);
     // REST returns array for /metafields on a resource; querying by ns/key via params returns all metafields,
     // so filter client-side to be safe.
-    const mf = (data.metafields || []).find(m => m.namespace === "welcome" && m.key === "discount_code");
+    const mf = (data.metafields || []).find(m => m.namespace === "custom" && m.key === "welcome_discount_code");
     return mf ? { code: mf.value, metafieldId: mf.id } : null;
   } catch (e) {
     // If 404 or empty, treat as not existing
@@ -45,13 +45,13 @@ async function getExistingWelcomeCode(customerId) {
 
 async function writeWelcomeCode(customerId, code) {
   // Create or update metafield (create is simpler; if exists, update)
-  const existing = await shopifyFetch(`/customers/${customerId}/metafields.json?namespace=welcome`);
-  const current = (existing.metafields || []).find(m => m.key === "discount_code");
+  const existing = await shopifyFetch(`/customers/${customerId}/metafields.json?namespace=custom`);
+  const current = (existing.metafields || []).find(m => m.key === "welcome_discount_code");
 
   const payload = {
     metafield: {
-      namespace: "welcome",
-      key: "discount_code",
+      namespace: "custom",
+      key: "welcome_discount_code",
       type: "single_line_text_field",
       value: code,
     },
