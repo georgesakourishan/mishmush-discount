@@ -8,8 +8,11 @@ const SHOP = process.env.SHOP;               // e.g. "1dkprr-fx.myshopify.com"
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN; // Admin API access token
 const RESEND_API_KEY = process.env.RESEND_API_KEY; // Email API key (Resend free tier)
 
-// ----- utils -----
+// ---------- utils ----------
 async function shopifyFetch(path, init = {}) {
+  const method = init.method || "GET";
+  const startedAt = Date.now();
+  console.log("notify-interest: Shopify request", { path, method });
   const url = `https://${SHOP}/admin/api/${API_VERSION}${path}`;
   const res = await fetch(url, {
     ...init,
@@ -19,6 +22,13 @@ async function shopifyFetch(path, init = {}) {
       ...(init.headers || {}),
     },
   });
+  const durationMs = Date.now() - startedAt;
+  console.log("notify-interest: Shopify response", {
+    path,
+    status: res.status,
+    statusText: res.statusText,
+    durationMs,
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Shopify API ${res.status} ${res.statusText}: ${text}`);
@@ -27,26 +37,31 @@ async function shopifyFetch(path, init = {}) {
 }
 
 function safeParse(body) {
-  try {
-    return JSON.parse(body);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(body); } catch { return null; }
 }
 
-// ----- core handler -----
+// ---------- handler ----------
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const missingEnv = [
+    !SHOP ? "SHOP" : null,
+    !ADMIN_TOKEN ? "ADMIN_TOKEN" : null,
+    !RESEND_API_KEY ? "RESEND_API_KEY" : null,
+  ].filter(Boolean);
+  if (missingEnv.length) {
+    console.error("notify-interest: Missing env vars", missingEnv);
+    return res.status(500).json({ error: "Missing required env vars: SHOP, ADMIN_TOKEN, RESEND_API_KEY" });
   }
 
-  if (!SHOP || !ADMIN_TOKEN || !RESEND_API_KEY) {
-    return res
-      .status(500)
-      .json({ error: "Missing required env vars: SHOP, ADMIN_TOKEN, RESEND_API_KEY" });
-  }
+  const topic = req.headers["x-shopify-topic"];
+  const contentLength = req.headers["content-length"]; // might be undefined
+  console.log("notify-interest: request received", {
+    method: req.method,
+    topic,
+    shop: SHOP,
+    contentLength,
+  });
 
-  // Read raw body for safety (Shopify webhooks sometimes need this)
   let raw = "";
   try {
     raw = await new Promise((resolve) => {
@@ -58,24 +73,32 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Unable to read body" });
   }
 
+  console.log("notify-interest: raw body received", { length: raw?.length || 0 });
+
   const payload = safeParse(raw);
-  if (!payload?.data?.customer) {
-    return res.status(200).json({ message: "No customer object in webhook payload." });
+  if (!payload) {
+    console.warn("notify-interest: failed to parse JSON body");
+  }
+  const customer = payload?.data?.customer;
+  if (!customer) {
+    console.log("notify-interest: exiting — no customer in payload");
+    return res.status(200).json({ message: "No customer data" });
   }
 
-  const customer = payload.data.customer;
-  const addedTags = payload.data.added_tags || [];
+  const addedTags = payload?.data?.added_tags || [];
+  console.log("notify-interest: added tags", addedTags);
   const notifyTag = addedTags.find((t) => t.startsWith("notify-variant-"));
-
   if (!notifyTag) {
-    return res.status(200).json({ message: "No notify-variant tag found, ignoring." });
+    console.log("notify-interest: exiting — no notify-variant-* tag found");
+    return res.status(200).json({ message: "No notify tag found" });
   }
 
   const variantId = notifyTag.replace("notify-variant-", "").trim();
-  console.log(`notify-interest: processing variant ${variantId} for ${customer.email}`);
+  console.log(`notify-interest: variant ${variantId} for ${customer.email}`);
 
   try {
-    // 1️⃣ Fetch variant + product details
+    // 1️⃣ Fetch product + variant details
+    console.time("notify-interest: fetchVariant");
     const variantRes = await shopifyFetch("/graphql.json", {
       method: "POST",
       body: JSON.stringify({
@@ -96,11 +119,11 @@ export default async function handler(req, res) {
         `,
       }),
     });
-
+    console.timeEnd("notify-interest: fetchVariant");
     const variant = variantRes.data?.productVariant;
     if (!variant) {
-      console.warn("Variant not found:", variantId);
-      return res.status(200).json({ message: "Variant not found." });
+      console.warn("notify-interest: exiting — variant not found", { variantId });
+      return res.status(200).json({ message: "Variant not found" });
     }
 
     // 2️⃣ Build email HTML
@@ -109,26 +132,38 @@ export default async function handler(req, res) {
       product: variant.product,
       variant,
     });
+    console.log("notify-interest: email HTML generated", { length: html.length });
 
-    // 3️⃣ Send email via Resend
-    const emailRes = await fetch("https://api.resend.com/emails", {
+    // 3️⃣ Send via Resend
+    console.time("notify-interest: sendEmail");
+    const emailPayload = {
+      from: "Mish Mush Kids <support@mishmushkids.com>",
+      to: customer.email,
+      subject: "You're on the list — we'll notify you when it's back!",
+      html,
+    };
+    console.log("notify-interest: sending email", {
+      to: customer.email,
+      subject: emailPayload.subject,
+    });
+    const send = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: "Mish Mush Kids <support@mishmushkids.com>",
-        to: customer.email,
-        subject: "You're on the list — we'll notify you when it's back!",
-        html,
-      }),
+      body: JSON.stringify(emailPayload),
+    });
+    const sendText = await send.text().catch(() => "");
+    console.timeEnd("notify-interest: sendEmail");
+    console.log("notify-interest: Resend response", {
+      status: send.status,
+      ok: send.ok,
+      bodyPreview: sendText.slice(0, 500),
     });
 
-    if (!emailRes.ok) {
-      const errText = await emailRes.text().catch(() => "");
-      console.error("Resend API error:", errText);
-      throw new Error(`Resend email failed: ${emailRes.status}`);
+    if (!send.ok) {
+      console.error("notify-interest: Resend send failed");
     }
 
     console.log(`Confirmation email sent to ${customer.email}`);
@@ -139,54 +174,66 @@ export default async function handler(req, res) {
   }
 }
 
-// ----- helpers -----
+// ---------- helpers ----------
 function buildEmailHtml({ firstName, product, variant }) {
   const name = firstName || "there";
   const productUrl =
     product.onlineStoreUrl || `https://${SHOP}/products/${product.handle}`;
   const imgSrc = variant.image?.src || "";
+  const price = variant.price ? `$${variant.price}` : "";
 
   return `
-    <div style="font-family: DM Sans, Arial, sans-serif; background:#f8f7f5; padding:32px;">
-      <div style="max-width:640px; margin:0 auto; background:#ffffff; border-radius:16px; overflow:hidden;">
-        <div style="padding:24px; text-align:center;">
-          <img src="https://mishmushkids.com/cdn/shop/files/mishmush.webp"
-               alt="Mish Mush Kids" width="160" style="display:block; margin:0 auto;" />
-        </div>
+  <div style="font-family: DM Sans, Arial, sans-serif; background:#f8f7f5; padding:32px;">
+    <div style="max-width:640px; margin:0 auto; background:#ffffff; border-radius:16px; overflow:hidden;">
+      <div style="padding:24px; text-align:center;">
+        <img src="https://cdn.shopify.com/s/files/1/your_logo_path/logo.png"
+             alt="Mish Mush Kids" width="160" style="display:block; margin:0 auto;" />
+      </div>
 
-        <h2 style="text-align:center; color:#856734;">You're on the list ✨</h2>
-        <p style="text-align:center; color:#444; font-size:15px; line-height:1.6;">
-          Hi ${name},<br>
-          We’ve noted your interest in the item below and will email you as soon as it’s back in stock.
+      <h2 style="text-align:center; color:#856734; margin:0;">You're on the list ✨</h2>
+      <p style="text-align:center; color:#444; font-size:15px; line-height:1.6; margin:16px 0 0;">
+        Hi ${name},<br>
+        We’ve noted your interest in the item below and will email you as soon as it’s back in stock.
+      </p>
+
+      <div style="margin:24px auto; max-width:400px; border:1px solid #eee; border-radius:12px; overflow:hidden;">
+        <a href="${productUrl}" style="text-decoration:none;">
+          ${
+            imgSrc
+              ? `<img src="${imgSrc}" alt="${variant.image?.altText || product.title}" style="width:100%; display:block;" />`
+              : ""
+          }
+          <div style="padding:16px;">
+            <h3 style="margin:0 0 8px; color:#222;">${product.title}</h3>
+            <p style="margin:0 0 8px; color:#666;">${variant.title}</p>
+            <p style="margin:0; color:#333; font-weight:600;">${price}</p>
+          </div>
+        </a>
+      </div>
+
+      <div style="text-align:center; padding-bottom:16px;">
+        <a href="${productUrl}"
+           style="display:inline-block; background:#856734; color:#fff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600;">
+          View Item
+        </a>
+      </div>
+
+      <hr style="border:none; border-top:1px solid #eaeaea; margin:24px 0;">
+
+      <div style="text-align:center; padding:0 24px 24px;">
+        <p style="font-size:12px; color:#777; line-height:1.6; margin:0 0 8px;">
+          You’re receiving this because you asked us to notify you when an item is back in stock.
         </p>
-
-        <div style="margin:24px auto; max-width:400px; border:1px solid #eee; border-radius:12px; overflow:hidden;">
-          <a href="${productUrl}" style="text-decoration:none;">
-            ${
-              imgSrc
-                ? `<img src="${imgSrc}" alt="${variant.image?.altText || product.title}" style="width:100%; display:block;" />`
-                : ""
-            }
-            <div style="padding:16px;">
-              <h3 style="margin:0 0 8px; color:#222;">${product.title}</h3>
-              <p style="margin:0 0 8px; color:#666;">${variant.title}</p>
-              <p style="margin:0; color:#333; font-weight:600;">$${variant.price}</p>
-            </div>
-          </a>
-        </div>
-
-        <div style="text-align:center; padding-bottom:16px;">
-          <a href="${productUrl}"
-             style="display:inline-block; background:#856734; color:#fff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600;">
-            View Item
-          </a>
-        </div>
-
-        <p style="text-align:center; color:#777; font-size:12px; margin-top:32px;">
-          You’re receiving this because you asked us to notify you when an item is back in stock.<br>
+        <p style="font-size:12px; color:#777; line-height:1.6; margin:0;">
           Mish Mush Kids • Los Angeles, CA •
           <a href="https://mishmushkids.com" style="color:#777;">mishmushkids.com</a>
         </p>
+        <p style="font-size:12px; color:#777; line-height:1.6; margin:8px 0 0;">
+          <a href="https://mishmushkids.com/pages/manage-notifications" style="color:#777; text-decoration:underline;">Manage notifications</a> • 
+          <a href="https://mishmushkids.com/pages/contact" style="color:#777; text-decoration:underline;">Contact us</a> • 
+          <a href="{{ unsubscribe_url }}" style="color:#777; text-decoration:underline;">Unsubscribe</a>
+        </p>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 }
