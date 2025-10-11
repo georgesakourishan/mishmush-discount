@@ -147,7 +147,7 @@ export default async function handler(req, res) {
     // 3️⃣ Send via Resend
     console.time("notify-interest: sendEmail");
     const emailPayload = {
-      from: "Mish Mush Kids <support@mishmushkids.com>",
+      from: "Mish Mush Kids <support@em.mishmushkids.com>",
       to: email,
       subject: "You're on the list — we'll notify you when it's back!",
       html,
