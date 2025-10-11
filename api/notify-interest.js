@@ -72,20 +72,17 @@ export default async function handler(req, res) {
   } catch {
     return res.status(400).json({ error: "Unable to read body" });
   }
-
+  console.log("notify-interest: raw body", raw);
   console.log("notify-interest: raw body received", { length: raw?.length || 0 });
 
   const payload = safeParse(raw);
   if (!payload) {
     console.warn("notify-interest: failed to parse JSON body");
   }
-  const customer = payload?.data?.customer;
-  if (!customer) {
-    console.log("notify-interest: exiting — no customer in payload");
-    return res.status(200).json({ message: "No customer data" });
-  }
+  console.log("notify-interest: payload keys", Object.keys(payload || {}));
 
-  const addedTags = payload?.data?.added_tags || [];
+  // Support both shapes: { data: { customer, added_tags } } and flat webhooks { email, customer_id, added_tags }
+  const addedTags = payload?.data?.added_tags || payload?.added_tags || [];
   console.log("notify-interest: added tags", addedTags);
   const notifyTag = addedTags.find((t) => t.startsWith("notify-variant-"));
   if (!notifyTag) {
@@ -94,6 +91,47 @@ export default async function handler(req, res) {
   }
 
   const variantId = notifyTag.replace("notify-variant-", "").trim();
+
+  // Resolve customer info from various webhook shapes; fetch by customer_id if needed
+  let customer = payload?.data?.customer || payload?.customer || null;
+  if (!customer?.email && payload?.email) {
+    customer = {
+      ...(customer || {}),
+      email: payload.email,
+      first_name: payload.first_name || payload.firstName,
+    };
+  }
+  if (!customer?.email) {
+    const customerId = payload?.customer_id || payload?.customerId || payload?.id;
+    if (customerId) {
+      console.log("notify-interest: fetching customer by id", { customerId: String(customerId) });
+      try {
+        const custRes = await shopifyFetch("/graphql.json", {
+          method: "POST",
+          body: JSON.stringify({
+            query: `{
+              customer(id: "gid://shopify/Customer/${customerId}") {
+                id
+                email
+                firstName
+              }
+            }`,
+          }),
+        });
+        const c = custRes.data?.customer;
+        if (c?.email) {
+          customer = { email: c.email, first_name: c.firstName };
+        }
+        console.log("notify-interest: fetched customer", { hasEmail: Boolean(customer?.email) });
+      } catch (e) {
+        console.warn("notify-interest: failed to fetch customer by id", String(e?.message || e));
+      }
+    }
+  }
+  if (!customer?.email) {
+    console.log("notify-interest: exiting — no customer email available");
+    return res.status(200).json({ message: "No customer email" });
+  }
   console.log(`notify-interest: variant ${variantId} for ${customer.email}`);
 
   try {
