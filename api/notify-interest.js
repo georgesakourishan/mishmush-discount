@@ -117,8 +117,7 @@ export default async function handler(req, res) {
             productVariant(id: "${variantGid}") {
               id
               title
-              price
-              image { src altText }
+              image { url altText }
               product {
                 title
                 handle
@@ -129,6 +128,12 @@ export default async function handler(req, res) {
         `,
       }),
     });
+    if (variantRes?.errors?.length) {
+      console.warn(
+        "notify-interest: variant query errors",
+        variantRes.errors.map((e) => e?.message || String(e))
+      );
+    }
     const variant = variantRes.data?.productVariant;
     if (!variant) return res.status(404).json({ error: "Variant not found" });
 
@@ -181,7 +186,7 @@ function buildEmailHtml({ firstName, product, variant }) {
   const name = firstName || "there";
   const productUrl =
     product.onlineStoreUrl || `https://${SHOP}/products/${product.handle}`;
-  const imgSrc = variant.image?.src || "";
+  const imgSrc = variant.image?.url || "";
   const price = variant.price ? `$${variant.price}` : "";
 
   return `
