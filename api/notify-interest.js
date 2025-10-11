@@ -1,7 +1,7 @@
 // api/notify-interest.js
-// Handles Shopify "customer_tags_added" webhook.
-// When a tag like "notify-variant-123456789" is added to a customer,
-// fetches variant + product info and emails the customer a confirmation.
+// Receives client-initiated POST from Shopify storefront with payload:
+// { variantId: string | number (GID or numeric), email: string }
+// Fetches variant + product info and emails the customer a confirmation.
 
 const API_VERSION = "2025-10";
 const SHOP = process.env.SHOP;               // e.g. "1dkprr-fx.myshopify.com"
@@ -42,25 +42,42 @@ function safeParse(body) {
 
 // ---------- handler ----------
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const missingEnv = [
-    !SHOP ? "SHOP" : null,
-    !ADMIN_TOKEN ? "ADMIN_TOKEN" : null,
-    !RESEND_API_KEY ? "RESEND_API_KEY" : null,
-  ].filter(Boolean);
-  if (missingEnv.length) {
-    console.error("notify-interest: Missing env vars", missingEnv);
-    return res.status(500).json({ error: "Missing required env vars: SHOP, ADMIN_TOKEN, RESEND_API_KEY" });
+  // --- Strict CORS: allow only mishmushkids.com ---
+  const origin = req.headers.origin || "";
+  const allowedOrigins = new Set([
+    "https://mishmushkids.com",
+    "https://www.mishmushkids.com",
+  ]);
+  const originAllowed = origin && allowedOrigins.has(origin);
+
+  // Handle CORS preflight early
+  if (req.method === "OPTIONS") {
+    if (originAllowed) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, X-Shopify-Topic, X-Shopify-Hmac-Sha256, X-Shopify-Shop-Domain, Authorization"
+      );
+      res.setHeader("Access-Control-Max-Age", "600");
+      return res.status(204).end();
+    }
+    return res.status(403).end();
   }
 
-  const topic = req.headers["x-shopify-topic"];
-  const contentLength = req.headers["content-length"]; // might be undefined
-  console.log("notify-interest: request received", {
-    method: req.method,
-    topic,
-    shop: SHOP,
-    contentLength,
-  });
+  // For non-preflight requests from browsers, enforce allowed origin
+  if (origin) {
+    if (!originAllowed) {
+      return res.status(403).json({ error: "CORS origin not allowed" });
+    }
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (!SHOP || !ADMIN_TOKEN || !RESEND_API_KEY)
+    return res.status(500).json({ error: "Missing required env vars: SHOP, ADMIN_TOKEN, RESEND_API_KEY" });
 
   let raw = "";
   try {
@@ -72,79 +89,32 @@ export default async function handler(req, res) {
   } catch {
     return res.status(400).json({ error: "Unable to read body" });
   }
-  console.log("notify-interest: raw body", raw);
-  console.log("notify-interest: raw body received", { length: raw?.length || 0 });
+  const payload = safeParse(raw) || {};
+  const { variantId: rawVariantId, email } = payload;
+  if (!rawVariantId || !email) {
+    return res.status(400).json({ error: "Missing required fields: variantId, email" });
+  }
+  console.log("notify-interest: request received", {
+    method: req.method,
+    shop: SHOP,
+    hasEmail: Boolean(email),
+    hasVariantId: Boolean(rawVariantId),
+  });
 
-  const payload = safeParse(raw);
-  if (!payload) {
-    console.warn("notify-interest: failed to parse JSON body");
-  }
-  console.log("notify-interest: payload keys", Object.keys(payload || {}));
-
-  // Expect shape: { customerId: GID or numeric, tags: ["notify-variant-<variantId>"] }
-  const tags = Array.isArray(payload?.tags) ? payload.tags : [];
-  console.log("notify-interest: tags", tags);
-  const notifyTag = tags.find((t) => typeof t === "string" && t.startsWith("notify-variant-"));
-  if (!notifyTag) {
-    console.log("notify-interest: exiting — no notify-variant-* tag found");
-    return res.status(200).json({ message: "No notify tag found" });
-  }
-
-  const variantId = notifyTag.replace("notify-variant-", "").trim();
-
-  // Resolve customer by id from payload
-  const rawCustomerId = payload?.customerId;
-  if (!rawCustomerId) {
-    console.log("notify-interest: exiting — customerId missing in payload");
-    return res.status(200).json({ message: "No customerId" });
-  }
-  const customerGid = String(rawCustomerId).startsWith("gid://")
-    ? String(rawCustomerId)
-    : `gid://shopify/Customer/${rawCustomerId}`;
-  console.log("notify-interest: fetching customer by id", { customerId: customerGid });
-  let customer = null;
-  try {
-    const custRes = await shopifyFetch("/graphql.json", {
-      method: "POST",
-      body: JSON.stringify({
-        query: `{
-          customer(id: "${customerGid}") {
-            id
-            email
-            firstName
-          }
-        }`,
-      }),
-    });
-    if (custRes?.errors?.length) {
-      console.warn(
-        "notify-interest: customer query errors",
-        custRes.errors.map((e) => e?.message || String(e))
-      );
-    }
-    const c = custRes?.data?.customer;
-    if (c?.email) {
-      customer = { email: c.email, first_name: c.firstName };
-    }
-    console.log("notify-interest: fetched customer", { hasEmail: Boolean(customer?.email) });
-  } catch (e) {
-    console.warn("notify-interest: failed to fetch customer by id", String(e?.message || e));
-  }
-  if (!customer?.email) {
-    console.log("notify-interest: exiting — no customer email available");
-    return res.status(200).json({ message: "No customer email" });
-  }
-  console.log(`notify-interest: variant ${variantId} for ${customer.email}`);
+  // Normalize variant GID
+  const variantGid = String(rawVariantId).startsWith("gid://")
+    ? String(rawVariantId)
+    : `gid://shopify/ProductVariant/${rawVariantId}`;
+  console.log("notify-interest: normalized variant id", { variantGid });
 
   try {
     // 1️⃣ Fetch product + variant details
-    console.time("notify-interest: fetchVariant");
     const variantRes = await shopifyFetch("/graphql.json", {
       method: "POST",
       body: JSON.stringify({
         query: `
           {
-            productVariant(id: "gid://shopify/ProductVariant/${variantId}") {
+            productVariant(id: "${variantGid}") {
               id
               title
               price
@@ -159,33 +129,25 @@ export default async function handler(req, res) {
         `,
       }),
     });
-    console.timeEnd("notify-interest: fetchVariant");
     const variant = variantRes.data?.productVariant;
-    if (!variant) {
-      console.warn("notify-interest: exiting — variant not found", { variantId });
-      return res.status(200).json({ message: "Variant not found" });
-    }
+    if (!variant) return res.status(404).json({ error: "Variant not found" });
 
     // 2️⃣ Build email HTML
     const html = buildEmailHtml({
-      firstName: customer.first_name,
+      firstName: 'there',
       product: variant.product,
       variant,
     });
-    console.log("notify-interest: email HTML generated", { length: html.length });
 
     // 3️⃣ Send via Resend
     console.time("notify-interest: sendEmail");
     const emailPayload = {
       from: "Mish Mush Kids <support@mishmushkids.com>",
-      to: customer.email,
+      to: email,
       subject: "You're on the list — we'll notify you when it's back!",
       html,
     };
-    console.log("notify-interest: sending email", {
-      to: customer.email,
-      subject: emailPayload.subject,
-    });
+    console.log("notify-interest: sending email", { to: email, subject: emailPayload.subject });
     const send = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -206,7 +168,7 @@ export default async function handler(req, res) {
       console.error("notify-interest: Resend send failed");
     }
 
-    console.log(`Confirmation email sent to ${customer.email}`);
+    console.log(`Confirmation email sent to ${email}`);
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error("notify-interest error:", err);
