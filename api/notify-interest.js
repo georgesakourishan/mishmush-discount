@@ -81,8 +81,8 @@ export default async function handler(req, res) {
   }
   console.log("notify-interest: payload keys", Object.keys(payload || {}));
 
-  // Support both shapes: { data: { customer, added_tags } } and flat webhooks { email, customer_id, added_tags }
-  const addedTags = payload?.data?.added_tags || payload?.added_tags || [];
+  // Support both shapes: { data: { customer, added_tags } } and flat webhooks { email, customer_id, added_tags, tags }
+  const addedTags = payload?.data?.added_tags || payload?.added_tags || payload?.tags || [];
   console.log("notify-interest: added tags", addedTags);
   const notifyTag = addedTags.find((t) => t.startsWith("notify-variant-"));
   if (!notifyTag) {
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
           method: "POST",
           body: JSON.stringify({
             query: `{
-              customer(id: "gid://shopify/Customer/${customerId}") {
+              customer(id: "${String(customerId).startsWith("gid://") ? String(customerId) : `gid://shopify/Customer/${customerId}`}") {
                 id
                 email
                 firstName
