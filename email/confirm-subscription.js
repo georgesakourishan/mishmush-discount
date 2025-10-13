@@ -6,7 +6,7 @@ import { renderLayout, renderHeader, renderHeading, renderIntro, renderProductCa
 export function buildConfirmSubscriptionEmail({ firstName, product, variant, shopDomain }) {
   const name = firstName || "there";
   const productUrl = product?.onlineStoreUrl || `https://${shopDomain}/products/${product?.handle || ""}`;
-  const imgSrc = variant?.image?.url || "";
+  const imgSrc = variant?.image?.url || product?.featuredImage?.url || "";
 
   const header = renderHeader({
     logoUrl: "https://mishmushkids.com/cdn/shop/files/mishmush.webp",
@@ -25,7 +25,7 @@ export function buildConfirmSubscriptionEmail({ firstName, product, variant, sho
   const productCard = renderProductCard({
     productUrl,
     imgSrc,
-    imgAlt: variant?.image?.altText || product?.title || "",
+    imgAlt: variant?.image?.altText || product?.featuredImage?.altText || product?.title || "",
     title: product?.title || "",
     variantTitle: variant?.title || ""
   });

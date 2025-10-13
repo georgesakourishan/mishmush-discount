@@ -122,6 +122,7 @@ export default async function handler(req, res) {
                 title
                 handle
                 onlineStoreUrl
+                featuredImage { url altText }
               }
             }
           }
