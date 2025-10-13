@@ -28,88 +28,18 @@ const sampleData = {
   shopDomain: "mishmushkids.com"
 };
 
-// Generate the email HTML
+// Generate the email HTML (now returns a full HTML document)
 const emailHtml = buildConfirmSubscriptionEmail(sampleData);
 
-// Create a complete HTML document for preview
-const previewHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Preview - Mish Mush Kids</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-            font-family: Arial, sans-serif;
-        }
-        .email-container {
-            background: white;
-            max-width: 600px;
-            margin: 0 auto;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .email-header {
-            background: #fafafa;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #ddd;
-        }
-        .email-header h1 {
-            margin: 0;
-            color: #666;
-            font-size: 18px;
-        }
-        .email-content {
-            padding: 20px;
-            background: #f9f9f9;
-        }
-        .note {
-            background: #e7f3ff;
-            border: 1px solid #b3d9ff;
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #0066cc;
-        }
-        .note strong {
-            color: #0052a3;
-        }
-    </style>
-</head>
-<body>
-    <div class="email-header">
-        <h1>📧 Email Preview</h1>
-    </div>
-    <div class="email-content">
-        <div class="note">
-            <strong>Note:</strong> This is a preview of how your email will look in email clients.
-            Copy the HTML below or save this file to test in different email clients like Gmail, Outlook, etc.
-        </div>
-        <div class="email-container">
-            ${emailHtml}
-        </div>
-    </div>
-</body>
-</html>`;
-
-// Save the preview file
+// Save the preview file (write the generated HTML directly)
 const previewPath = join(__dirname, "email-preview.html");
-writeFileSync(previewPath, previewHtml, "utf8");
+writeFileSync(previewPath, emailHtml, "utf8");
 
 console.log("✅ Email preview generated!");
 console.log(`📄 File saved to: ${previewPath}`);
 console.log("");
 console.log("📋 Next steps:");
 console.log("1. Open email-preview.html in your browser");
-console.log("2. Test in email clients (Gmail, Outlook, etc.)");
-console.log("3. Use online tools like:");
-console.log("   - Litmus (litmus.com)");
-console.log("   - Email on Acid (emailonacid.com)");
-console.log("   - Putsmail (putsmail.com)");
+console.log("2. Test by sending via your ESP or tools like Litmus/Email on Acid");
 console.log("");
 console.log("🔧 To customize the preview data, edit the sampleData object above.");

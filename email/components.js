@@ -9,10 +9,21 @@ const COLOR_TEXT_LIGHT = "#555555";
 
 export function renderLayout({ children }) {
   return `
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLOR_BG_OUTER};margin:0;padding:0;">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+  <title></title>
+</head>
+<body style="margin:0;padding:0;background-color:${COLOR_BG_OUTER};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLOR_BG_OUTER};margin:0;padding:0;">
   <tr>
     <td align="center" style="padding:32px 0;">
-      <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;margin:0 auto;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;margin:0 auto;width:100%;max-width:600px;">
         <tr>
           <td>
             ${children}
@@ -21,7 +32,9 @@ export function renderLayout({ children }) {
       </table>
     </td>
   </tr>
-</table>`;
+</table>
+</body>
+</html>`;
 }
 
 export function renderHeader({ logoUrl, alt = "Mish Mush Kids", width = 129 }) {
