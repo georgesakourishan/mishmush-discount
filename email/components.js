@@ -147,9 +147,9 @@ export function renderHr() {
 export function renderFooter({ unsubscribeUrl = "#" } = {}) {
   const currentYear = new Date().getFullYear();
   return `
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLOR_ACCENT};">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLOR_ACCENT};padding:24px 60px;">
   <tr>
-    <td align="center" style="padding:24px 60px;">
+    <td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td style="font-size:12px;line-height:1.5;color:${COLOR_PRIMARY};font-family:${FONT_FAMILY};padding-bottom:8px;">
