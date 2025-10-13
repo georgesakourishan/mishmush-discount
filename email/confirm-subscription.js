@@ -1,12 +1,13 @@
 // email/confirm-subscription.js
 // buildConfirmSubscriptionEmail: assembles the confirmation email HTML using reusable components
 
-import { renderLayout, renderHeader, renderHeading, renderIntro, renderProductCard, renderButton, renderHr, renderFooter } from "./components.js";
+import { renderLayout, renderHeader, renderHeading, renderIntro, renderHr, renderFooter, renderProductGrid, renderButton } from "./components.js";
 
-export function buildConfirmSubscriptionEmail({ firstName, product, variant, shopDomain }) {
+export function buildConfirmSubscriptionEmail({ firstName, product, variant, shopDomain, newArrivalsProducts = [] }) {
   const name = firstName || "there";
   const productUrl = product?.onlineStoreUrl || `https://${shopDomain}/products/${product?.handle || ""}`;
   const imgSrc = variant?.image?.url || product?.featuredImage?.url || "";
+  const productName = product?.title || "this item";
 
   const header = renderHeader({
     logoUrl: "https://mishmushkids.com/cdn/shop/files/mishmush.webp",
@@ -18,27 +19,24 @@ export function buildConfirmSubscriptionEmail({ firstName, product, variant, sho
   const intro = renderIntro({
     lines: [
       `Hi ${name},`,
-      "We’ve noted your interest in the item below and will email you as soon as it’s back in stock.",
+      `Thank you for signing up to be notified when ${productName} is back.`,
+      'As soon as it’s restocked, we’ll send you a note so you can be first to grab it.',
+      'While you wait, take a peek at our other playful favorites inspired by Arabic traditions and childhood magic.'
     ],
   });
 
-  const productCard = renderProductCard({
-    productUrl,
-    imgSrc,
-    imgAlt: variant?.image?.altText || product?.featuredImage?.altText || product?.title || "",
-    title: product?.title || "",
-    variantTitle: variant?.title || ""
-  });
-
-  const cta = renderButton({ href: productUrl, label: "View Item" });
+  const gridHeading = renderHeading({ text: "New arrivals you might like", size: "20px" });
+  const grid = renderProductGrid({ items: newArrivalsProducts, shopDomain });
+  const shopAllCta = renderButton({ href: `https://${shopDomain}`, label: "Shop all" });
 
   const body = `
     ${header}
     ${renderHr()}
     ${heading}
     ${intro}
-    ${productCard}
-    ${cta}
+    ${gridHeading}
+    ${grid}
+    ${shopAllCta}
     ${renderFooter()}
   `;
 

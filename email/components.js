@@ -4,36 +4,36 @@
 const FONT_FAMILY = "'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif";
 const COLOR_PRIMARY = "#432f0b";
 const COLOR_ACCENT = "#f0a76f";
-const COLOR_BG_OUTER = "#fafafa";
+const COLOR_BG_OUTER = "#ffffff";
 const COLOR_TEXT_LIGHT = "#555555";
 
 export function renderLayout({ children }) {
   return `
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="x-ua-compatible" content="ie=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="x-apple-disable-message-reformatting">
-  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
-  <title></title>
-</head>
-<body style="margin:0;padding:0;background-color:${COLOR_BG_OUTER};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLOR_BG_OUTER};margin:0;padding:0;">
-  <tr>
-    <td align="center" style="padding:32px 0;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;margin:0 auto;width:100%;max-width:600px;">
-        <tr>
-          <td>
-            ${children}
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
+        <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="x-apple-disable-message-reformatting">
+        <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+        <title></title>
+    </head>
+    <body style="margin:0;padding:0;background-color:${COLOR_BG_OUTER};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0;padding:0;background-color:${COLOR_BG_OUTER};">
+            <tr>
+                <td align="center" style="padding:0;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;width:100%;max-width:600px;background-color:#ffffff;">
+                        <tr>
+                            <td>
+                                ${children}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
 </html>`;
 }
 
@@ -62,12 +62,19 @@ export function renderHeading({ text, size = "24px" }) {
 }
 
 export function renderIntro({ lines }) {
-  const html = Array.isArray(lines) ? lines.join("<br>") : String(lines || "");
+  const items = Array.isArray(lines) ? lines : [String(lines || "")];
+  const paragraphs = items
+    .filter((x) => x != null && String(x).trim() !== "")
+    .map((text, idx) => {
+      const marginBottom = idx === items.length - 1 ? 0 : 12; // extra space between lines
+      return `<p style="font-size:16px;line-height:1.5;color:${COLOR_TEXT_LIGHT};font-family:${FONT_FAMILY};margin:${idx === 0 ? 0 : 0}px 0 ${marginBottom}px 0;">${String(text)}</p>`;
+    })
+    .join("");
   return `
 <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
-    <td align="left" style="padding:0 60px 20px;">
-      <p style="font-size:16px;line-height:1.5;color:${COLOR_TEXT_LIGHT};font-family:${FONT_FAMILY};margin:0;">${html}</p>
+    <td align="left" style="padding:0 60px 24px;">
+      ${paragraphs}
     </td>
   </tr>
 </table>`;
@@ -157,6 +164,63 @@ export function renderFooter({ unsubscribeUrl = "#" } = {}) {
         </tr>
       </table>
     </td>
+  </tr>
+</table>`;
+}
+
+
+export function renderProductGrid({ items = [], shopDomain }) {
+  if (!Array.isArray(items) || items.length === 0) return "";
+  const products = items.slice(0, 4).map((p) => ({
+    title: p?.title || "",
+    handle: p?.handle || "",
+    featuredImage: p?.featuredImage || {},
+  }));
+
+  function renderCell(product) {
+    if (!product) {
+      return `
+      <td align="center" valign="top" width="50%" style="padding:10px 10px;">
+        
+      </td>`;
+    }
+    const productUrl = `https://${shopDomain}/products/${product.handle}`;
+    const imgSrc = product.featuredImage?.url || "";
+    const imgAlt = product.featuredImage?.altText || product.title || "";
+    return `
+      <td align="center" valign="top" width="50%" style="padding:10px 10px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          ${imgSrc ? `
+          <tr>
+            <td align="center" style="padding:0 0 10px;">
+              <a href="${productUrl}" style="text-decoration:none;">
+                <img src="${imgSrc}" alt="${imgAlt}" width="240" style="display:block;max-width:100%;height:auto;border:0;" />
+              </a>
+            </td>
+          </tr>` : ""}
+          <tr>
+            <td align="center" style="padding:0 5px;">
+              <h3 style="font-size:16px;line-height:1.2;color:${COLOR_PRIMARY};font-family:${FONT_FAMILY};font-weight:400;margin:0 0 6px;">
+                <a href="${productUrl}" style="color:${COLOR_PRIMARY};text-decoration:none;">${product.title}</a>
+              </h3>
+            </td>
+          </tr>
+        </table>
+      </td>`;
+  }
+
+  const row1 = [products[0], products[1]];
+  const row2 = [products[2], products[3]];
+
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    ${renderCell(row1[0])}
+    ${renderCell(row1[1])}
+  </tr>
+  <tr>
+    ${renderCell(row2[0])}
+    ${renderCell(row2[1])}
   </tr>
 </table>`;
 }

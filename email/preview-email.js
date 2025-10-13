@@ -28,6 +28,30 @@ const sampleData = {
   shopDomain: "mishmushkids.com"
 };
 
+// Mock new arrivals grid items
+sampleData.newArrivalsProducts = [
+  {
+    title: "New Arrival One",
+    handle: "new-arrival-one",
+    featuredImage: { url: "https://cdn.shopify.com/shopify-email/example-image.jpg", altText: "New Arrival One" }
+  },
+  {
+    title: "New Arrival Two",
+    handle: "new-arrival-two",
+    featuredImage: { url: "https://cdn.shopify.com/shopify-email/example-image.jpg", altText: "New Arrival Two" }
+  },
+  {
+    title: "New Arrival Three",
+    handle: "new-arrival-three",
+    featuredImage: { url: "https://cdn.shopify.com/shopify-email/example-image.jpg", altText: "New Arrival Three" }
+  },
+  {
+    title: "New Arrival Four",
+    handle: "new-arrival-four",
+    featuredImage: { url: "https://cdn.shopify.com/shopify-email/example-image.jpg", altText: "New Arrival Four" }
+  }
+];
+
 // Generate the email HTML (now returns a full HTML document)
 const emailHtml = buildConfirmSubscriptionEmail(sampleData);
 

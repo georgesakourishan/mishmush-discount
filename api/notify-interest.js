@@ -108,13 +108,13 @@ export default async function handler(req, res) {
   console.log("notify-interest: normalized variant id", { variantGid });
 
   try {
-    // 1️⃣ Fetch product + variant details
+    // 1️⃣ Fetch product + variant details AND new-arrivals collection in one request
     const variantRes = await shopifyFetch("/graphql.json", {
       method: "POST",
       body: JSON.stringify({
         query: `
-          {
-            productVariant(id: "${variantGid}") {
+          query VariantAndNewArrivals($variantId: ID!) {
+            productVariant(id: $variantId) {
               id
               title
               image { url altText }
@@ -125,8 +125,25 @@ export default async function handler(req, res) {
                 featuredImage { url altText }
               }
             }
+            collections(first: 1, query: "handle:new-arrivals") {
+              edges {
+                node {
+                  handle
+                  products(first: 4) {
+                    edges {
+                      node {
+                        title
+                        handle
+                        featuredImage { url altText }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         `,
+        variables: { variantId: variantGid },
       }),
     });
     if (variantRes?.errors?.length) {
@@ -136,17 +153,18 @@ export default async function handler(req, res) {
       );
     }
     const variant = variantRes.data?.productVariant;
+    const colNode = variantRes?.data?.collections?.edges?.[0]?.node;
+    let newArrivalsProducts = colNode?.products?.edges?.map((e) => e?.node).filter(Boolean) || [];
     if (!variant) return res.status(404).json({ error: "Variant not found" });
 
     // 2️⃣ Build email HTML
-    const firstName = typeof email === "string" && email.includes("@")
-      ? email.split("@")[0]
-      : "there";
+    const firstName = "there";
     const html = buildConfirmSubscriptionEmail({
       firstName,
       product: variant.product,
       variant,
       shopDomain: "mishmushkids.com",
+      newArrivalsProducts,
     });
 
     // 3️⃣ Send via Resend
@@ -154,7 +172,7 @@ export default async function handler(req, res) {
     const emailPayload = {
       from: "Mish Mush Kids <support@em.mishmushkids.com>",
       to: email,
-      subject: "You're on the list — we'll notify you when it's back!",
+      subject: "We’ll let you know when it’s back in stock!",
       html,
     };
     console.log("notify-interest: sending email", { to: email, subject: emailPayload.subject });
