@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Preview - Mish Mush Kids</title>
+    <style>
+        /* Email client reset styles */
+        * { box-sizing: border-box; }
+        body, table, td, p, a, li, blockquote { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; outline: none; text-decoration: none; }
+
+        /* Preview wrapper styles */
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+        .preview-header {
+            background: #fafafa;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .preview-header h1 {
+            margin: 0;
+            color: #666;
+            font-size: 18px;
+        }
+        .email-frame {
+            background: white;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .info-panel {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #0066cc;
+        }
+        .info-panel strong {
+            color: #0052a3;
+        }
+
+        /* Email styles (matching your components) */
+        .email-layout {
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            background: #fafafa;
+            padding: 32px;
+        }
+        .email-layout .content {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+        }
+        .email-header {
+            padding: 30px 60px 10px;
+            text-align: center;
+        }
+        .email-header a {
+            color: #432f0b;
+            text-decoration: none;
+        }
+        .email-header img {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        .email-heading {
+            font-size: 24px;
+            line-height: 1.211;
+            text-align: center;
+            color: #432f0b;
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            font-weight: 400;
+            margin: 0;
+            padding: 0;
+        }
+        .email-intro {
+            text-align: center;
+            color: #555555;
+            font-size: 16px;
+            line-height: 1.5;
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            font-weight: 400;
+            margin: 0;
+            padding: 0;
+        }
+        .email-product-card {
+            width: 240px;
+            margin: 0 auto;
+        }
+        .email-product-card a {
+            text-decoration: none;
+            display: block;
+        }
+        .email-product-card img {
+            width: 220px;
+            height: 220px;
+            max-width: 600px;
+            display: block;
+        }
+        .product-info {
+            padding: 0px 15px;
+            text-align: center;
+        }
+        .product-title {
+            font-size: 20px;
+            line-height: 1.2;
+            color: #432f0b;
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            font-weight: 400;
+            margin: 0 0 10px;
+            padding: 0;
+        }
+        .product-title a {
+            text-decoration: none;
+            color: #432f0b;
+        }
+        .product-price {
+            line-height: 1.2;
+            font-size: 16px;
+            color: #432f0b;
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            font-weight: 400;
+            margin: 0;
+            padding: 0;
+        }
+        .email-button {
+            text-align: center;
+        }
+        .email-button a {
+            font-size: 16px;
+            color: #432f0b;
+            text-decoration: none;
+            border-radius: 12px;
+            background-color: #f0a76f;
+            display: block;
+            min-width: 80px;
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            font-weight: 700;
+            padding: 14px 28px;
+            border: 3px solid #f0a76f;
+        }
+        .email-divider {
+            margin: 0 auto;
+        }
+        .email-divider table {
+            width: 85%;
+        }
+        .email-divider td {
+            height: 0;
+            border-top-width: 1px;
+            border-top-color: #f0a76f;
+            border-top-style: solid;
+        }
+        .email-footer {
+            background-color: #a1b17f;
+            padding: 24px 0;
+        }
+        .email-footer .content {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #a1b17f;
+        }
+        .footer-content {
+            padding: 0 60px;
+            text-align: left;
+        }
+        .footer-content table {
+            width: 100%;
+            border-spacing: 0;
+            border-collapse: collapse;
+        }
+        .footer-text {
+            padding-bottom: 8px;
+            font-family: 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Lucida, Helvetica, Arial, sans-serif;
+            font-weight: 400;
+            font-size: 12px;
+            color: #432f0b;
+            line-height: 1.5;
+        }
+        .footer-text a {
+            color: #000000;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-header">
+        <h1>📧 Static Email Preview</h1>
+    </div>
+
+    <div class="info-panel">
+        <strong>Note:</strong> This is a static preview of your email template. For testing in actual email clients,
+        use the <strong>npm run preview-email</strong> command to generate a dynamic version with your components.
+    </div>
+
+    <div class="email-frame">
+        <div class="email-layout">
+            <div class="content">
+                <!-- Header -->
+                <div class="email-header">
+                    <a href="https://mishmushkids.com">
+                        <img src="https://mishmushkids.com/cdn/shop/files/mishmush.webp"
+                             alt="Mish Mush Kids"
+                             width="129">
+                    </a>
+                </div>
+
+                <!-- Heading -->
+                <div style="padding: 10px 60px;">
+                    <h2 class="email-heading">You're on the list ✨</h2>
+                </div>
+
+                <!-- Intro -->
+                <div style="padding: 0 60px;">
+                    <p class="email-intro">
+                        Hi Alex,<br>
+                        We've noted your interest in the item below and will email you as soon as it's back in stock.
+                    </p>
+                </div>
+
+                <!-- Product Card -->
+                <div style="padding: 24px 0;">
+                    <div class="email-product-card">
+                        <a href="https://mishmushkids.com/products/clementines-art-print">
+                            <img src="https://via.placeholder.com/220x220/f0a76f/432f0b?text=Clementines+Art+Print"
+                                 alt="Clementines Art Print">
+                            <div class="product-info">
+                                <h3 class="product-title">
+                                    <a href="https://mishmushkids.com/products/clementines-art-print">
+                                        Clementines Art Print
+                                    </a>
+                                </h3>
+                                <p class="product-price">$25.00</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Button -->
+                <div style="padding: 0 60px 20px;">
+                    <div class="email-button">
+                        <a href="https://mishmushkids.com/products/clementines-art-print">
+                            View Item
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="email-divider" style="padding: 0 60px;">
+                    <table>
+                        <tr><td height="10px"></td></tr>
+                        <tr><td style="height: 0; border-top-width: 1px; border-top-color: #f0a76f; border-top-style: solid;"></td></tr>
+                        <tr><td height="30px"></td></tr>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div class="email-footer">
+                    <div class="content">
+                        <div class="footer-content">
+                            <table>
+                                <tr>
+                                    <td class="footer-text">
+                                        <div>
+                                            <div style="color: #432f0b;">
+                                                <span>Mish Mush Kids</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="footer-text">
+                                        <div>
+                                            <div>
+                                                <span>No longer want to receive these emails?</span>
+                                                <span>
+                                                    <a href="#">Unsubscribe</a>
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span>© 2025</span>
+                                                <span>Mish Mush Kids</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
