@@ -136,11 +136,6 @@ export function renderFooter({ unsubscribeUrl = "#" } = {}) {
             Mish Mush Kids
           </td>
         </tr>
-        <tr>
-          <td style="font-size:12px;line-height:1.5;color:${COLOR_PRIMARY};font-family:${FONT_FAMILY};">
-            No longer want to receive these emails? 
-            <a href="${unsubscribeUrl}" style="color:#000000;text-decoration:underline;">Unsubscribe</a>
-          </td>
         </tr>
         <tr>
           <td style="font-size:12px;line-height:1.5;color:${COLOR_PRIMARY};font-family:${FONT_FAMILY};padding-top:4px;">
