@@ -3,10 +3,8 @@
 
 import { renderLayout, renderHeader, renderHeading, renderIntro, renderHr, renderFooter, renderProductGrid, renderButton } from "./components.js";
 
-export function buildConfirmSubscriptionEmail({ firstName, product, variant, shopDomain, newArrivalsProducts = [] }) {
+export function buildConfirmSubscriptionEmail({ firstName, product, shopDomain, newArrivalsProducts = [] }) {
   const name = firstName || "there";
-  const productUrl = product?.onlineStoreUrl || `https://${shopDomain}/products/${product?.handle || ""}`;
-  const imgSrc = variant?.image?.url || product?.featuredImage?.url || "";
   const productName = product?.title || "this item";
 
   const header = renderHeader({

@@ -74,6 +74,18 @@ export function renderIntro({ lines }) {
 <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
     <td align="left" style="padding:0 60px 24px;">
+        <span
+            style="display:none!important;
+            color:#fff;
+            font-size:1px;
+            line-height:1px;
+            max-height:0;
+            max-width:0;
+            opacity:0;
+            overflow:hidden;"
+        >
+            Thank you for signing up to be notified when this item is back.
+        </span>
       ${paragraphs}
     </td>
   </tr>

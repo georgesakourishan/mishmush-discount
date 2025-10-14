@@ -167,12 +167,12 @@ export default async function handler(req, res) {
       newArrivalsProducts,
     });
 
-    // 3️⃣ Send via Resend
+    const productName = variant?.product?.title ? (' for the ' + variant?.product?.title) : "!";
     console.time("notify-interest: sendEmail");
     const emailPayload = {
       from: "Mish Mush Kids <support@em.mishmushkids.com>",
       to: email,
-      subject: "We’ll let you know when it’s back in stock!",
+      subject: `You’re on the list${productName}`,
       html,
     };
     console.log("notify-interest: sending email", { to: email, subject: emailPayload.subject });
