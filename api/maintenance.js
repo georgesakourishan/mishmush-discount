@@ -16,7 +16,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const PRICE_RULE_ID = process.env.PRICE_RULE_ID;
 const CRON_SECRET = process.env.CRON_SECRET;
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
-const DAYS_TO_KEEP = 30;
+const DAYS_TO_KEEP = 8; // keep codes for 7 days; cron runs daily at 09:00 UTC
 
 // ---------- Utilities ----------
 
