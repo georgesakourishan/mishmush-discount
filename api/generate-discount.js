@@ -71,7 +71,7 @@ async function writeWelcomeCode(customerId, code) {
     {
       ownerId: customerGid,
       namespace: "custom",
-      key: "welcome_discount_use",
+      key: "welcome_discount_used",
       type: "boolean",
       value: "false",
     },
