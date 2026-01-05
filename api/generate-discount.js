@@ -8,6 +8,15 @@ const PRICE_RULE_ID = process.env.PRICE_RULE_ID; // "1668282417377"
 const FLOW_HMAC_SECRET = process.env.FLOW_HMAC_SECRET || ""; // optional shared secret
 
 // ----- utils -----
+function normalizeCustomerIds(rawCustomerId) {
+  // Shopify may send either a numeric ID or a GID like "gid://shopify/Customer/123"
+  const asString = String(rawCustomerId || "");
+  const match = asString.match(/gid:\/\/shopify\/Customer\/(\d+)/);
+  const numericId = match ? match[1] : asString;
+  const gid = match ? asString : `gid://shopify/Customer/${numericId}`;
+  return { numericId, gid };
+}
+
 async function shopifyFetch(path, init = {}) {
   const url = `https://${SHOP}/admin/api/${API_VERSION}${path}`;
   const res = await fetch(url, {
@@ -32,46 +41,90 @@ function randomCode() {
 async function getExistingWelcomeCode(customerId) {
   // Try to read the metafield if it exists
   try {
-    const data = await shopifyFetch(`/customers/${customerId}/metafields.json?namespace=custom&key=welcome_discount_code`);
+    const { numericId } = normalizeCustomerIds(customerId);
+    const data = await shopifyFetch(
+      `/customers/${numericId}/metafields.json?namespace=custom&key=welcome_discount_code`
+    );
     // REST returns array for /metafields on a resource; querying by ns/key via params returns all metafields,
     // so filter client-side to be safe.
     const mf = (data.metafields || []).find(m => m.namespace === "custom" && m.key === "welcome_discount_code");
     return mf ? { code: mf.value, metafieldId: mf.id } : null;
   } catch (e) {
-    // If 404 or empty, treat as not existing
-    return null;
+    // Only treat missing resource as "no metafield"; surface other errors.
+    const msg = String(e?.message || e);
+    if (msg.includes("404")) return null;
+    throw e;
   }
 }
 
 async function writeWelcomeCode(customerId, code) {
-  // Create or update metafield (create is simpler; if exists, update)
-  const existing = await shopifyFetch(`/customers/${customerId}/metafields.json?namespace=custom`);
-  const current = (existing.metafields || []).find(m => m.key === "welcome_discount_code");
-
-  const payload = {
-    metafield: {
+  // GraphQL supports setting multiple metafields in a single request.
+  const { gid: customerGid } = normalizeCustomerIds(customerId);
+  const metafields = [
+    {
+      ownerId: customerGid,
       namespace: "custom",
       key: "welcome_discount_code",
       type: "single_line_text_field",
       value: code,
     },
-  };
+    {
+      ownerId: customerGid,
+      namespace: "custom",
+      key: "welcome_discount_use",
+      type: "boolean",
+      value: "false",
+    },
+    {
+      ownerId: customerGid,
+      namespace: "custom",
+      key: "welcome_email_sent",
+      type: "boolean",
+      value: "false",
+    },
+  ];
 
-  if (current) {
-    // Update
-    const res = await shopifyFetch(`/metafields/${current.id}.json`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
-    return res.metafield;
-  } else {
-    // Create
-    const res = await shopifyFetch(`/customers/${customerId}/metafields.json`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return res.metafield;
+  const gql = await shopifyFetch("/graphql.json", {
+    method: "POST",
+    body: JSON.stringify({
+      query: `
+        mutation SetWelcomeMetafields($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            metafields {
+              id
+              namespace
+              key
+              type
+              value
+            }
+            userErrors {
+              field
+              message
+              code
+            }
+          }
+        }
+      `,
+      variables: { metafields },
+    }),
+  });
+
+  if (gql?.errors?.length) {
+    throw new Error(
+      `GraphQL errors: ${gql.errors.map((e) => e?.message || String(e)).join(" | ")}`
+    );
   }
+  const userErrors = gql?.data?.metafieldsSet?.userErrors || [];
+  if (userErrors.length) {
+    throw new Error(
+      `metafieldsSet userErrors: ${userErrors
+        .map((e) => e?.message || JSON.stringify(e))
+        .join(" | ")}`
+    );
+  }
+
+  const written = gql?.data?.metafieldsSet?.metafields || [];
+  return written[0] || null;
 }
 
 async function createDiscountCode(priceRuleId, desiredCode) {
